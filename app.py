@@ -1,10 +1,9 @@
-from os import path
-import os
+from os import path, listdir
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
 from base64 import decodestring
-from face import *
+from face import FaceWarp
 import psycopg2
 import urllib
 import uuid
@@ -14,7 +13,7 @@ import uuid
 ################################################################################
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:abcdefg@localhost/hack4dk'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:abcdefg@37.139.31.245/hack4dk'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
 
@@ -44,28 +43,25 @@ def grafitti():
         latitude, longitude = location.split(',')
         return jsonify([g.to_dict() for g in Graffiti.query.limit(5).all()])
     elif request.method == 'POST':
-        location = request.args.get('location')
-        latitude, longitude = location.split(',')
+        latitude, longitude = request.args.get('location').split(',')
         art = urllib.unquote(request.args.get('art'))
-        outcome = str(uuid.uuid4())
-        # print([k for k in request.files])
-        # f = open('outcomes/%s.png' % outcome, 'wb')
-        # data = request.data.decode('utf8')
-        # _, img64 = data.split('base64,')
-        # f.write(decodestring(img64.encode('utf8')))
-        # f.close()
-        trans = generate_transforms(["inputs/0.png", "inputs/1.png", "inputs/2.png"])
-        warped_art(uuid, art, trans)
-        outcome_fnames = []
-        for i in range(2):
-            db.session.add(Graffiti(outcome_img='outcomes/%s_%d.png' % (outcome, i), art_img=art, longitude=longitude, latitude=latitude))
+        outcome_id = str(uuid.uuid4())
+        warp = FaceWarp(art, "inputs/0.png", ["inputs/1.png", "inputs/2.png"])
+        for i, warped in warp.get_warps():
+            outcome_path = 'outcomes/%s_%d.png' % (outcome_id, i)
+            warped.save(outcome_path)
+            db.session.add(Graffiti(outcome_img=outcome_path, art_img=art, longitude=longitude, latitude=latitude))
             db.session.commit()
-            outcome_fnames.append('outcomes/%s_%d.png' % (outcome, i))
+            outcome_fnames.append(outcome_path)
         return jsonify({'outcomes': outcome_fnames, 'art': art})
+
+@app.route('/outcomes', methods=['GET'])
+def outcomes():
+    return jsonify(["outcomes/" + fname for fname in listdir("outcomes")])
 
 @app.route('/art', methods=['GET'])
 def art():
-    return jsonify(["static/" + fname for fname in os.listdir("static")])
+    return jsonify(["static/" + fname for fname in listdir("static")])
 
 @app.route('/static/<path:path>')
 def serve_static(path):
