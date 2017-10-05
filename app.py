@@ -47,7 +47,8 @@ def grafitti():
         art = urllib.unquote(request.args.get('art'))
         outcome_id = str(uuid.uuid4())
         warp = FaceWarp(art, "inputs/0.png", ["inputs/1.png", "inputs/2.png"])
-        for i, warped in warp.get_warps():
+        outcome_fnames = []
+        for i, warped in enumerate(warp.get_warps()):
             outcome_path = 'outcomes/%s_%d.png' % (outcome_id, i)
             warped.save(outcome_path)
             db.session.add(Graffiti(outcome_img=outcome_path, art_img=art, longitude=longitude, latitude=latitude))
@@ -75,3 +76,4 @@ def serve_outcomes(path):
 def apply_caching(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
+
