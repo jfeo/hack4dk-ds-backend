@@ -106,38 +106,31 @@ def draw_landmarks_on_image(image, lms):
 class FaceWarp:
 
     def __init__(self, target_image, base_image, warp_images):
-        if type(target_image) is str:
+        if isinstance(target_image, basestring):
             self.target_image = imread(target_image, mode='RGB')
         else:
             self.target_image = target_image
 
-        if type(base_image) is str:
+        if isinstance(base_image, basestring):
             self.base_image = imread(base_image, mode='RGB')
         else:
             self.base_image = base_image
 
         self.warp_images = []
         for warp_image in warp_images:
-            if type(warp_image) is str:
+            if isinstance(warp_image, basestring):
                 self.warp_images.append(imread(warp_image, mode='RGB'))
             else:
                 self.warp_images.append(warp_image)
 
     def get_warps(self):
         target_lms = Landmarks.from_image(self.target_image)
-        imsave("outcomes/target_lms.png", draw_landmarks_on_image(self.target_image, target_lms))
         base_lms = Landmarks.from_image(self.base_image)
-        imsave("outcomes/base_lms.png", draw_landmarks_on_image(self.base_image, base_lms))
         with ShepardsDistortion(self.target_image, target_lms) as distort:
-            i = 1
-            for warp_image in self.warp_images:
+            for i, warp_image in enumerate(self.warp_images):
                 warp_lms = Landmarks.from_image(warp_image)
-                imsave("outcomes/input_lms_%d.png" % i, draw_landmarks_on_image(warp_image, warp_lms))
-                print(((base_lms - warp_lms) * 100).points)
                 transform_lms = target_lms.get_transform(warp_lms - base_lms)
                 distorted = WarpImage(distort.transform(transform_lms))
-                imsave("outcomes/warp_lms_%d.png" % i, draw_landmarks_on_image(distorted.image_data, transform_lms))
-                i = i + 1
                 yield distorted
 
 
